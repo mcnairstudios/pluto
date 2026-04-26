@@ -1,0 +1,7 @@
+# Compiled binary
+/pluto
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

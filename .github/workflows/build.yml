@@ -1,0 +1,59 @@
+name: Build Pluto Image
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  IMAGE: gavinmcnair/pluto
+
+jobs:
+  build-amd64:
+    runs-on: [self-hosted, linux, amd64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        run: echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_LOGIN}" --password-stdin
+      - name: Build
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          docker build --build-arg VERSION=$TAG \
+            -t $IMAGE:$TAG-amd64 .
+      - name: Push
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          docker push $IMAGE:$TAG-amd64
+
+  build-arm64:
+    runs-on: [self-hosted, linux, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        run: echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_LOGIN}" --password-stdin
+      - name: Build
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          docker build --build-arg VERSION=$TAG \
+            -t $IMAGE:$TAG-arm64 .
+      - name: Push
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          docker push $IMAGE:$TAG-arm64
+
+  manifest:
+    needs: [build-amd64, build-arm64]
+    runs-on: [self-hosted, linux, arm64]
+    steps:
+      - name: Log in to Docker Hub
+        run: echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_LOGIN}" --password-stdin
+      - name: Create and push manifests
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          docker manifest create $IMAGE:$TAG \
+            --amend $IMAGE:$TAG-amd64 \
+            --amend $IMAGE:$TAG-arm64
+          docker manifest push $IMAGE:$TAG
+          docker manifest create $IMAGE:latest \
+            --amend $IMAGE:$TAG-amd64 \
+            --amend $IMAGE:$TAG-arm64
+          docker manifest push $IMAGE:latest
